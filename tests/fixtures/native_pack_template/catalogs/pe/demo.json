@@ -1,0 +1,5 @@
+{
+  "binary_family": "pe",
+  "library": "demo.dll",
+  "symbols": ["DemoFunction", "WideFunction"]
+}

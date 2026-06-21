@@ -1,0 +1,30 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential make \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv "$VIRTUAL_ENV" \
+    && groupadd --system appgroup \
+    && useradd --system --gid appgroup --create-home --home-dir /home/appuser appuser \
+    && chown -R appuser:appgroup /app /opt/venv /home/appuser
+
+COPY pyproject.toml README.md ./
+COPY apihashing ./apihashing
+COPY packs ./packs
+COPY docs ./docs
+
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -e . \
+    && chown -R appuser:appgroup /app /opt/venv /home/appuser
+
+USER appuser
+
+CMD ["sh", "-lc", "CPU_COUNT=$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1); export APIHASHING_ENABLE_MP_SEARCH=\"${APIHASHING_ENABLE_MP_SEARCH:-1}\"; export APIHASHING_MP_SEARCH_MAX_WORKERS=\"${APIHASHING_MP_SEARCH_MAX_WORKERS:-$CPU_COUNT}\"; export APIHASHING_SEARCH_MAX_WORKERS=\"${APIHASHING_SEARCH_MAX_WORKERS:-$CPU_COUNT}\"; export APIHASHING_EXPORT_MAX_WORKERS=\"${APIHASHING_EXPORT_MAX_WORKERS:-$CPU_COUNT}\"; uvicorn apihashing.app:create_app --factory --host 0.0.0.0 --port 8000 --reload"]

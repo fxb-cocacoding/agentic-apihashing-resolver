@@ -1,0 +1,13 @@
+#include <stdint.h>
+
+uint32_t hash_api_name(const char* library_name, const char* symbol_name) {
+    (void)library_name;
+    (void)symbol_name;
+    return 0;
+}
+
+/* Optional callback consumed by the loader for per-algorithm author metadata. */
+const char* apihash_plugin_author(uint32_t index) {
+    (void)index;
+    return "your-team";
+}

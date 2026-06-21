@@ -1,0 +1,16 @@
+from __future__ import annotations
+
+from apihashing.plugin_api import FunctionHashImplementation, HashValue
+
+
+def _hash(library_name: str, symbol_name: str, params: dict[str, object] | None = None) -> HashValue:
+    del library_name, symbol_name, params
+    return HashValue.from_int(0, bit_length=32)
+
+
+HASH_IMPLEMENTATION = FunctionHashImplementation(
+    id="{algorithm_id}",
+    callback=_hash,
+    description="Replace this with the algorithm logic.",
+    hash_size_bits=32,
+)

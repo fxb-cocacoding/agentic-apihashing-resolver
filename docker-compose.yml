@@ -1,0 +1,45 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    working_dir: /app
+    user: "${UID:-1000}:${GID:-1000}"
+    command: >-
+      sh -c "CPU_COUNT=$$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc 2>/dev/null || echo 1);
+      export APIHASHING_ENABLE_MP_SEARCH=\"$${APIHASHING_ENABLE_MP_SEARCH:-1}\";
+      export APIHASHING_MP_SEARCH_MAX_WORKERS=\"$${APIHASHING_MP_SEARCH_MAX_WORKERS:-$$CPU_COUNT}\";
+      export APIHASHING_SEARCH_MAX_WORKERS=\"$${APIHASHING_SEARCH_MAX_WORKERS:-$$CPU_COUNT}\";
+      export APIHASHING_EXPORT_MAX_WORKERS=\"$${APIHASHING_EXPORT_MAX_WORKERS:-$$CPU_COUNT}\";
+      make -C packs/default-pack/algorithms/native all &&
+      /opt/venv/bin/python -m uvicorn apihashing.app:create_app --factory --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      PYTHONUNBUFFERED: "1"
+      HOME: /tmp
+      PYTHONDONTWRITEBYTECODE: "1"
+      WATCHFILES_FORCE_POLLING: "true"
+
+  ui:
+    build:
+      context: .
+      dockerfile: ui/Dockerfile
+    working_dir: /app/ui
+    user: "${UID:-1000}:${GID:-1000}"
+    command: sh -lc "npm install --no-audit --fund=false && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./ui:/app/ui
+      - ./ui/node_modules:/app/ui/node_modules
+    depends_on:
+      - backend
+    environment:
+      HOME: /tmp
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+      VITE_FORCE_POLLING: "true"
+      VITE_CACHE_DIR: /tmp/vite-cache
