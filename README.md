@@ -15,6 +15,8 @@ This repository provides:
 
 LLMs often hallucinate plausible Windows API imports when malware uses API hashing. APIHashing gives the agent a deterministic tool call instead: implement or select the exact hash algorithm, run it against export catalogs, and return real candidates.
 
+The idea and compatibility model come from [OALabs HashDB](https://hashdb.openanalysis.net/) and its open-source implementation at [github.com/OALabs/hashdb](https://github.com/OALabs/hashdb). APIHashing ports that workflow into a local, agent-friendly system where an AI tool can add or adapt hash implementations, reload them, and resolve hashes without leaving the reverse-engineering loop.
+
 For API hash implementations that mirror assembly, use `byteops`. ByteOps provides explicit arithmetic, logical, rotate, shift, and width behavior, which prevents hallucinations around assembly operations and CPU register semantics. Prefer concrete helpers such as `ror_dword`, `rol_dword`, `shl_dword`, and `shr_dword` instead of asking an agent to invent Python equivalents for machine instructions.
 
 ## Quick Start
@@ -393,6 +395,8 @@ curl -sS -X POST http://localhost:8000/admin/rebuild-native \
 
 ## REST API
 
+The REST API includes HashDB-compatible routes that mimic the backend expected by the HashDB IDA plugin. Pointing that plugin at APIHashing lets you keep the familiar IDA workflow while using local catalogs, custom packs, and newly implemented agent-generated algorithms.
+
 Useful read endpoints:
 
 - `GET /health`
@@ -414,6 +418,13 @@ Admin endpoints:
 - `POST /admin/reload`
 - `POST /admin/rebuild-native`
 
+HashDB-compatible endpoints:
+
+- `GET /hash`
+- `GET /hash/{algorithm_id}/{hash_value}`
+- `GET /module/{module_name}/{algorithm_id}/{permutation}`
+- `POST /hunt`
+
 Example:
 
 ```bash
@@ -431,7 +442,7 @@ curl -sS -X POST http://localhost:8000/hash-string \
 - REST API, web UI, local CLI, and MCP bridge share the same backend service layer.
 - Hash results carry both hex and unsigned integer representations.
 - Project-native plugins and HashDB-style one-file modules are supported.
-- HashDB-compatible routes are exposed for drop-in IDA plugin use: `GET /hash`, `GET /hash/{algorithm}/{value}`, `GET /module/{module}/{algorithm}/{permutation}`, and `POST /hunt`.
+- HashDB-compatible routes are exposed as a drop-in backend for the HashDB IDA plugin.
 - Optional XOR modifiers are supported in REST and CLI flows.
 - Runtime reload endpoints allow zero-restart development.
 - Bundled reference packs are shipped inside the Python package for standalone `pipx` and `uv` usage.
