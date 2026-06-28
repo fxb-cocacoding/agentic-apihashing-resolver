@@ -100,11 +100,23 @@ Tool argument patterns are documented in `docs/mcp-examples.md`.
 Use this workflow when reversing inlined API resolution from a sample.
 
 1. Start from `entry` and follow callees until you hit resolver-style loops.
-2. Search for FNV-1a multiply constant `0x1000193` to find good candidates.
-3. In the candidate function, extract one pair:
+2. Search decompiled source and assembly operations for PEB/TEB walking patterns:
+   - `fs`/`gs` segment-register access, PEB loader-list traversal, or export-directory walking
+   - x86 markers: `fs:[0x18]` for TEB self, `fs:[0x30]` for PEB, `PEB+0x0C` for `Ldr`, `Ldr+0x14` for `InMemoryOrderModuleList`
+   - x64 markers: `gs:[0x30]` for TEB self, `gs:[0x60]` for PEB, `PEB+0x18` for `Ldr`, `Ldr+0x20` for `InMemoryOrderModuleList`
+   - module-name checks or hashes for `ntdll.dll`, `kernel32.dll`, or `kernelbase.dll`
+   - direct imports or hashed resolution of `GetProcAddress` and `LoadLibraryA`/`LoadLibraryW`
+3. From that discovery point, look for a function called inside a loop to obtain or transform a value that is later compared against an immediate constant. That compare constant is usually the target API hash.
+4. Search for FNV-1a multiply constant `0x1000193` and other distinctive constants from the candidate hash function to find good candidates.
+5. Search the hash packs for constants from the candidate function. If a constant is already known in a pack, the hash function may already be implemented:
+   - `rg -n "0x1000193|16777619" packs apihashing/bundled_packs`
+6. In the candidate function, extract one pair:
    - base seed from `MOV <reg>, 0x...` before hash loop
    - compare hash from `CMP <reg>, 0x...` after loop
-4. Validate immediately with APIHashing CLI before continuing with more pairs.
+7. Validate immediately with APIHashing CLI before continuing with more pairs. Start broad across all loaded DLL catalogs and their exports, then narrow to likely modules when needed:
+   - `python -m apihashing search-hash --hash 0x... --algorithm <candidate>`
+   - `python -m apihashing search-hash --hash 0x... --algorithm <candidate> --dll kernel32.dll --dll ntdll.dll`
+8. If no result appears, search outward from the resolver: locate how `GetProcAddress`/`LoadLibraryA`/`LoadLibraryW` are resolved, including the case where their own hashes are compared first after handles to `kernel32.dll` or `ntdll.dll` were obtained by PEB/TEB walking.
 
 Fast validation examples:
 

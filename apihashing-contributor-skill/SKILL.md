@@ -146,7 +146,21 @@ python -m apihashing search-hash --hash 0x7c0017bb --dll kernel32.dll
 python -m apihashing export-enum --algorithm demo_hash --dll kernel32.dll --output demo.h
 ```
 
-## 7) MCP server for agent workflows
+## 7) Binary API-hash resolution workflow
+
+When reversing inlined API resolution from a sample:
+
+1. Start from `entry` and follow callees until you hit resolver-style loops.
+2. Search decompiled source and assembly operations for PEB/TEB walking patterns: x86 `fs:[0x18]` for TEB self and `fs:[0x30]` for PEB; x64 `gs:[0x30]` for TEB self and `gs:[0x60]` for PEB; loader traversal through x86 `PEB+0x0C`/`Ldr+0x14` or x64 `PEB+0x18`/`Ldr+0x20`; export-directory walking; or module-name checks/hashes for `ntdll.dll`, `kernel32.dll`, and `kernelbase.dll`.
+3. From that discovery point, look for a function called inside a loop to obtain or transform a value that is later compared against an immediate constant. That compare constant is usually the target API hash.
+4. Search hash packs for constants from the candidate function. Known constants often mean the hash function is already implemented:
+   - `rg -n "0x1000193|16777619" packs apihashing/bundled_packs`
+5. Validate broad first across loaded DLL catalogs and exports, then narrow:
+   - `python -m apihashing search-hash --hash 0x... --algorithm <candidate>`
+   - `python -m apihashing search-hash --hash 0x... --algorithm <candidate> --dll kernel32.dll --dll ntdll.dll`
+6. If no result appears, search outward for API resolution of `GetProcAddress` and `LoadLibraryA`/`LoadLibraryW`, including the case where they are hashed imports resolved after `kernel32.dll` or `ntdll.dll` handles were obtained by PEB/TEB walking.
+
+## 8) MCP server for agent workflows
 
 Run MCP bridge to expose APIHashing to Codex/Claude/Gemini style tools:
 
@@ -156,7 +170,7 @@ APIHASHING_MCP_API_URL=http://localhost:8000 python -m apihashing.mcp_server
 
 Available MCP tools include packs, algorithms, catalogs, hash/search/resolve/export, and admin reload/rebuild operations.
 
-## 8) Runtime behavior in Docker Compose
+## 9) Runtime behavior in Docker Compose
 
 After containers are running:
 - Python algorithm edits: call `/admin/reload`
@@ -164,6 +178,6 @@ After containers are running:
 
 Do not require `docker restart` or `docker compose up --build` for normal algorithm/catalog iteration.
 
-## 9) Permission rule for agents
+## 10) Permission rule for agents
 
 If MCP is unavailable and an agent needs to execute arbitrary Python code directly, the agent should ask the user for explicit approval before running that Python execution.
