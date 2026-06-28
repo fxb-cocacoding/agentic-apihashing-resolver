@@ -1,6 +1,7 @@
-# APIHashing
+# Agentic API-Hashing Resolver
 
-APIHashing is a local backend for resolving API hashes during reverse engineering. It is built for agentic workflows where a coding or RE agent inspects a binary, reconstructs the API hashing algorithm, adds that algorithm as a plugin, and asks this tool to resolve hashes back to concrete exports such as `kernel32.dll!GetProcAddress`.
+Agentic API-Hashing Resolver is a local backend for resolving API hashes during reverse engineering.
+It is built for agentic workflows where a coding or RE agent inspects a binary, reconstructs the API hashing algorithm, adds that algorithm as a plugin, and asks this tool to resolve hashes back to concrete exports such as `kernel32.dll!GetProcAddress`.
 
 This repository provides:
 
@@ -13,15 +14,27 @@ This repository provides:
 
 ## Why This Exists
 
-LLMs often hallucinate plausible Windows API imports when malware uses API hashing. APIHashing gives the agent a deterministic tool call instead: implement or select the exact hash algorithm, run it against export catalogs, and return real candidates.
+LLMs often hallucinate plausible Windows API imports when malware uses API hashing.
+The Agentic API-Hash Resolver framework gives the agent a deterministic tool call instead: implement or select the exact hash algorithm, run it against export catalogs, and return real candidates.
+The project contains a compressed exports of almost all DLLs from a recent Windows installation, it also has an option to ignore DLLs containing hyphens (almost exclusively forwarders to other DLLs) and also a selection of most common DLLs.
+The prefiltering of DLLs can speed up bruteforcing. In addition, the framework uses multithreading when checking hashes.
+Packs of hash function implementations can be used to share a repository of hashes within an organization.
 
-The idea and compatibility model come from [OALabs HashDB](https://hashdb.openanalysis.net/) and its open-source implementation at [github.com/OALabs/hashdb](https://github.com/OALabs/hashdb). APIHashing ports that workflow into a local, agent-friendly system where an AI tool can add or adapt hash implementations, reload them, and resolve hashes without leaving the reverse-engineering loop.
+The idea and compatibility model come from [OALabs HashDB](https://hashdb.openanalysis.net/) and its open-source implementation at [github.com/OALabs/hashdb](https://github.com/OALabs/hashdb). 
+This framework ports that workflow into a local, agent-friendly system where an AI tool can add or adapt hash implementations, reload them, and resolve hashes without leaving the reverse-engineering loop.
 
-For API hash implementations that mirror assembly, use `byteops`. ByteOps provides explicit arithmetic, logical, rotate, shift, and width behavior, which prevents hallucinations around assembly operations and CPU register semantics. Prefer concrete helpers such as `ror_dword`, `rol_dword`, `shl_dword`, and `shr_dword` instead of asking an agent to invent Python equivalents for machine instructions.
+You can use the framework in your agentic reverse engineering setup to let any model write the API hash implementation for you.
+Sometimes, specially non-frontier models tend to hallucinate assembly operations when porting logical or arithmetical operations into Python (at the time of writing, LLMs tend to produce wrong byte-lengths of registers, e.g. missing a modulo operation).
+The "library" `byteops` tries to fix this. [ByteOps](https://github.com/fxb-cocacoding/byteops) provides explicit arithmetic, logical, rotate, shift, and width behavior, which prevents hallucinations around assembly operations and CPU register semantics. 
+Agents shall prefer concrete helpers such as `ror_dword`, `rol_dword`, `shl_dword`, and `shr_dword` instead of asking an agent to invent Python equivalents for machine instructions, this is also explicitly added in the skill file.
+In addition to Python code, one can also create a C function that implements the hash function and registers it to the framework.
+
+The browser UI is mostly interesting for debugging and/or testing single strings if manually reversing a sample.
+Docker can be used for launching the REST API and the MCP server, but even the command line interface combined with the skill files works well.
 
 ## Quick Start
 
-Run the development stack with Docker:
+Launch the server backend with Docker:
 
 ```bash
 docker compose up --build
@@ -57,7 +70,8 @@ The installable skill is in:
 apihashing-contributor-skill/SKILL.md
 ```
 
-Install the whole folder, not just the Markdown file, so future references or helper files can live beside `SKILL.md`.
+If you experience that the agent cannot find the project (for example when you don't use the mcp server), let your agent add an absolute path pointing to the framework, the agent spends less time searching for the project.
+You can also tell it to use your venv in case the agent tries to install the dependencies locally.
 
 ### Claude
 
